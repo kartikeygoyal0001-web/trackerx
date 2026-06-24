@@ -42,5 +42,5 @@ export interface Lead {
   updated_at: string;
 }
 
-export type CreateLeadInput = Omit<Lead, 'id' | 'lead_id' | 'created_at' | 'updated_at'>;
+export type CreateLeadInput = Omit<Lead, 'id' | 'lead_id' | 'user_id' | 'created_at' | 'updated_at'>;
 export type UpdateLeadInput = Partial<CreateLeadInput>;
