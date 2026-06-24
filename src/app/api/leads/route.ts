@@ -1,12 +1,22 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getSupabaseServerClient, getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { CreateLeadInput } from '@/types/lead';
 
+async function getAuthUser() {
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
 export async function GET() {
-  const supabase = getSupabaseServerClient();
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from('leads')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -14,12 +24,15 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const supabase = getSupabaseServerClient();
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const supabase = getSupabaseAdminClient();
   const body: CreateLeadInput = await request.json();
 
   const { data, error } = await supabase
     .from('leads')
-    .insert([body])
+    .insert([{ ...body, user_id: user.id }])
     .select()
     .single();
 

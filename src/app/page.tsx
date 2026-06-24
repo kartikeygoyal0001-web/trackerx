@@ -1,14 +1,21 @@
-import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getSupabaseServerClient, getSupabaseAdminClient } from '@/lib/supabase/server';
 import { PageClient } from '@/components/PageClient';
+import { redirect } from 'next/navigation';
 import type { Lead } from '@/types/lead';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) redirect('/login');
+
+  const admin = getSupabaseAdminClient();
+  const { data, error } = await admin
     .from('leads')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
   if (error) {

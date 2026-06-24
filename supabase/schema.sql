@@ -25,6 +25,7 @@ CREATE SEQUENCE IF NOT EXISTS lead_id_seq START 1;
 CREATE TABLE IF NOT EXISTS leads (
   id             SERIAL PRIMARY KEY,
   lead_id        TEXT UNIQUE NOT NULL DEFAULT '',
+  user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name           TEXT NOT NULL,
   phone          TEXT NOT NULL,
   date_added     DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -73,15 +74,14 @@ CREATE TRIGGER set_updated_at
   EXECUTE FUNCTION update_updated_at();
 
 -- ─── ROW LEVEL SECURITY ───────────────────────────────────────────────────────
--- Solo use: allow all operations with the anon key.
--- When you add authentication later, replace this with user-scoped policies.
 
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow all for anon"
+-- Users can only see and modify their own leads
+CREATE POLICY "Users manage own leads"
   ON leads FOR ALL
-  USING (true)
-  WITH CHECK (true);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ─── INDEXES ──────────────────────────────────────────────────────────────────
 
@@ -90,11 +90,17 @@ CREATE INDEX IF NOT EXISTS idx_leads_date_added     ON leads(date_added);
 CREATE INDEX IF NOT EXISTS idx_leads_temperature    ON leads(temperature);
 CREATE INDEX IF NOT EXISTS idx_leads_stage          ON leads(stage);
 
--- ─── IF TABLE ALREADY EXISTS: run these to add new columns ──────────────────
--- CREATE TYPE loan_interest AS ENUM ('Yes', 'No', 'Unknown');
--- ALTER TABLE leads ADD COLUMN IF NOT EXISTS loan_interest loan_interest NOT NULL DEFAULT 'Unknown';
--- CREATE TYPE property_type AS ENUM ('Farmhouse', 'House', 'Plots');
--- ALTER TABLE leads ADD COLUMN IF NOT EXISTS property_type property_type NOT NULL DEFAULT 'Farmhouse';
+-- ─── INDEXES ──────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_leads_user_id ON leads(user_id);
+
+-- ─── MIGRATION: if table already exists, run these in Supabase SQL Editor ────
+-- ALTER TABLE leads ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+-- CREATE INDEX IF NOT EXISTS idx_leads_user_id ON leads(user_id);
+-- DROP POLICY IF EXISTS "Allow all for anon" ON leads;
+-- CREATE POLICY "Users manage own leads" ON leads FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+-- -- Assign existing leads to your user (replace with your actual user UUID from Supabase Auth dashboard):
+-- -- UPDATE leads SET user_id = 'your-user-uuid-here' WHERE user_id IS NULL;
 
 -- ─── ENABLE REALTIME (run separately if needed) ───────────────────────────────
 -- Supabase Dashboard → Database → Replication → enable "leads" table
