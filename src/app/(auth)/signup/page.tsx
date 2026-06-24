@@ -17,7 +17,6 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,42 +26,16 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const supabase = getSupabaseBrowserClient();
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${location.origin}/auth/callback` },
-      });
-      if (error) { setError(error.message); return; }
-      // If session is returned directly (email confirm disabled), go home
-      if (data.session) {
-        router.push('/');
-        router.refresh();
-      } else {
-        setSuccess(true);
-      }
+      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (signUpError) { setError(signUpError.message); return; }
+      // Sign in immediately — no email confirmation required
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) { setError(signInError.message); return; }
+      router.push('/');
+      router.refresh();
     } finally {
       setLoading(false);
     }
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="w-full max-w-sm space-y-4 text-center">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-primary-foreground shadow mx-auto">
-            <Building2 className="h-6 w-6" />
-          </div>
-          <h2 className="text-xl font-bold">Check your email</h2>
-          <p className="text-sm text-muted-foreground">
-            We sent a confirmation link to <span className="text-foreground font-medium">{email}</span>.
-            Click it to activate your account.
-          </p>
-          <Link href="/login" className="text-sm text-foreground font-medium hover:underline underline-offset-4">
-            Back to login
-          </Link>
-        </div>
-      </div>
-    );
   }
 
   return (
